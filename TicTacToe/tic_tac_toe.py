@@ -16,9 +16,8 @@ def check_win(player, pos1: ScratchVar, pos2: ScratchVar, pos3: ScratchVar, pos4
     
 
 def tic_tac_toe():
-    player_moves = Txn.application_args[1]
+    player_moves = Txn.application_args[0]
     status = ScratchVar(TealType.bytes, 0)
-    status.store(Bytes("playing"))
 
     pos1 = ScratchVar(TealType.uint64, 1)
     pos2 = ScratchVar(TealType.uint64, 2)
@@ -35,6 +34,7 @@ def tic_tac_toe():
     op_corner = ScratchVar(TealType.uint64)
     pos = DynamicScratchVar(TealType.uint64)
     return Seq(
+        status.store(Bytes("playing")),
         pos1.store(Int(0)),
         pos2.store(Int(0)),
         pos3.store(Int(0)),
@@ -57,11 +57,12 @@ def tic_tac_toe():
             .ElseIf(GetByte(player_moves, i.load()) == Int(7)).Then(pos.set_index(pos7), op_corner.store(Int(3)))
             .ElseIf(GetByte(player_moves, i.load()) == Int(8)).Then(pos.set_index(pos8))
             .ElseIf(GetByte(player_moves, i.load()) == Int(9)).Then(pos.set_index(pos9), op_corner.store(Int(1)))
-            .Else(Seq(status.store(Bytes("bad move")), Break())),
-            If(Not(pos.load())).Then(pos.store(Int(1))).Else(Seq(status.store(Bytes("bad move")), Break())),
-            If(check_win(Int(1), pos1, pos2, pos3, pos4, pos5, pos6, pos7, pos8, pos9), Seq(status.store(Bytes("player won")), Break())),
-            If(i.load() == Int(4), Seq(status.store(Bytes("draw")), Break())),
+            .Else(status.store(Bytes("bad move")), Break()),
+            If(Not(pos.load())).Then(pos.store(Int(1))).Else(status.store(Bytes("bad move")), Break()),
+            If(check_win(Int(1), pos1, pos2, pos3, pos4, pos5, pos6, pos7, pos8, pos9), status.store(Bytes("player won")), Break()),
+            If(i.load() == Int(4), status.store(Bytes("draw")), Break()),
             
+            # Contract moves
             # 1: If contract has two in a row -> win
             For(j.store(Int(1)), j.load() < Int(10), j.store(j.load() + Int(1))).Do(
                 If(j.load() == Int(1)).Then(pos.set_index(pos1))
@@ -165,7 +166,7 @@ def tic_tac_toe():
             Assert(moved.load() == Int(1)),
 
             # 7: Check if contract won
-            If(check_win(Int(2), pos1, pos2, pos3, pos4, pos5, pos6, pos7, pos8, pos9), Seq(status.store(Bytes("contract won")), Break())),
+            If(check_win(Int(2), pos1, pos2, pos3, pos4, pos5, pos6, pos7, pos8, pos9), status.store(Bytes("contract won")), Break()),
             
             # Clean temp vars
             moved.store(Int(0)),
